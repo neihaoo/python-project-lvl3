@@ -30,28 +30,22 @@ before = read_file('before.html')
 
 expected_html = read_file('after.html')
 expected_structure = [
-    [
-        fixture_names['folder'],
-        [
-            fixture_names['image'],
-            fixture_names['js'],
-            fixture_names['css'],
-            fixture_names['html_after'],
-        ],
-    ],
+    fixture_names['folder'],
+    fixture_names['image'],
+    fixture_names['js'],
+    fixture_names['css'],
+    fixture_names['html_after'],
     fixture_names['html_after'],
 ]
 
 
-def get_node(entry):
-    return (
-        entry.name if entry.is_file() else [entry.name, build_dir_tree(entry)]
-    )
-
-
 def build_dir_tree(dir_path):
-    with os.scandir(dir_path) as it:
-        return [get_node(entry) for entry in it]
+    tree = []
+
+    for _, dirs, files in os.walk(dir_path):
+        tree.extend(dirs + files)
+
+    return tree
 
 
 def test_download(requests_mock):
@@ -81,4 +75,4 @@ def test_dst_structire(requests_mock):
 
         actual_structure = build_dir_tree(tmpdirname)
 
-        assert expected_structure == actual_structure
+        assert sorted(expected_structure) == sorted(actual_structure)
