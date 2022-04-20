@@ -3,7 +3,9 @@
 """Page Loader Main Script."""
 
 import argparse
+import sys
 
+import logger
 from page_loader.download import DEFAULT_DST_FOLDER, download
 
 DESCRIPTION = 'Page Loader'
@@ -22,8 +24,12 @@ def main():
     )
 
     args = parser.parse_args()
-    download(args.source, args.output)
+
+    try:
+        download(args.source, args.output)
+    except Exception as error:
+        logger.error(error)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

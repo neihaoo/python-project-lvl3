@@ -3,7 +3,6 @@ import tempfile
 import requests_mock as req_mock
 
 from page_loader import download
-from page_loader.download import download_asset
 
 DIR_PATH = os.path.dirname(__file__)
 SOURCE_PATH = 'https://ru.hexlet.io/courses'
