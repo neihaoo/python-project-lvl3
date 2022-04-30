@@ -1,44 +1,51 @@
 """Page Loader Download Module."""
 
+import logging
 import os
-from urllib.parse import urljoin
+import sys
 
 import requests
 from page_loader.common import make_filename, make_foldername
-from page_loader.logger import logger
 from page_loader.parser import parse_page
+from requests.exceptions import RequestException
 
 DEFAULT_DST_FOLDER = os.getcwd()
-CHUNK_SIZE = 128
+
+logging.basicConfig(stream=sys.stderr)
+logger = logging.getLogger(__name__)
 
 
-def read_file(file_path: str) -> str:
-    """Read downloaded file."""
-    with open(file_path) as filename:
-        return filename.read()
-
-
-def download_file(url: str, dst: str) -> str:
-    """Download file to dst folder."""
+def save_data(content_data: str, dst: str, url: str) -> str:
+    """Save downloaded data to dst folder."""
     file_name = make_filename(url)
     file_path = os.path.join(dst, file_name)
 
-    try:
-        req = requests.get(url, stream=True)
-    except Exception as error:
-        logger.error(error)
+    mode = 'wt' if isinstance(content_data, str) else 'wb'
 
     try:
-        with open(file_path, 'wb') as filename:
-            for chunk in req.iter_content(CHUNK_SIZE):
-                filename.write(chunk)
-    except FileNotFoundError as file_error:
-        logger.error(file_error)
+        with open(file_path, mode) as filename:
+            filename.write(content_data)
+    except OSError as exc:
+        logger.error(exc)
+        raise OSError
 
-    return file_name
+    return file_path
 
 
-def download_assets(url: str, assets_urls: str, dst: str) -> str:
+def download_data(url: str) -> str:
+    """Download file to dst folder."""
+    req = requests.get(url)
+
+    try:
+        req.raise_for_status()
+    except RequestException as exc:
+        logger.error(exc)
+        raise RequestException
+
+    return req.content
+
+
+def download_assets(assets_urls: str, dst: str, url: str) -> None:
     """Download page asset."""
     assets_folder = make_foldername(url)
     assets_path = os.path.join(dst, assets_folder)
@@ -46,23 +53,23 @@ def download_assets(url: str, assets_urls: str, dst: str) -> str:
     if not os.path.exists(assets_path):
         try:
             os.mkdir(assets_path)
-        except OSError as error:
-            logger.exception(error)
+        except OSError as exc:
+            logger.error(exc)
+            raise OSError
 
     for asset_url in assets_urls:
-        download_file(urljoin(url, asset_url), assets_path)
+        asset_data = download_data(asset_url)
+        save_data(asset_data, assets_path, asset_url)
 
 
 def download(url: str, dst: str = DEFAULT_DST_FOLDER) -> str:
     """Download html page to dst folder."""
-    page_name = download_file(url, dst)
-    page_path = os.path.join(dst, page_name)
-    page_data, assets_urls = parse_page(url, read_file(page_path))
+    page_data = download_data(url)
+    html, assets_urls = parse_page(page_data, url)
 
-    with open(page_path, 'w') as filename:
-        filename.write(page_data)
+    page_path = save_data(html, dst, url)
 
     if assets_urls:
-        download_assets(url, assets_urls, dst)
+        download_assets(assets_urls, dst, url)
 
     return page_path

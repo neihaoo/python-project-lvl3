@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hexlet-code"
-version = "0.3.0"
+version = "0.3.1"
 description = "Page Loader (Hexlet Python Project Level 3)"
 authors = ["neihaoo <neihaoo@gmail.com>"]
 repository = "https://github.com/neihaoo/python-project-lvl3"

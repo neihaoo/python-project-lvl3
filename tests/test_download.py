@@ -1,8 +1,10 @@
 import os
 import tempfile
+import pytest
 import requests_mock as req_mock
 
 from page_loader import download
+from requests.exceptions import RequestException
 
 DIR_PATH = os.path.dirname(__file__)
 SOURCE_PATH = 'https://ru.hexlet.io/courses'
@@ -75,3 +77,18 @@ def test_dst_structire(requests_mock):
         actual_structure = build_dir_tree(tmpdirname)
 
         assert sorted(expected_structure) == sorted(actual_structure)
+
+
+def test_os_error(requests_mock):
+    with pytest.raises(OSError):
+        requests_mock.get(req_mock.ANY, text=before)
+
+        download(SOURCE_PATH, 'some_dir')
+
+
+def test_request_error(requests_mock):
+    with pytest.raises(RequestException):
+        requests_mock.get(req_mock.ANY, text=before, status_code=404)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            download(SOURCE_PATH, tmpdirname)
