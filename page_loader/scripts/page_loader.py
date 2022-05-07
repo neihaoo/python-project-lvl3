@@ -10,6 +10,7 @@ from requests.exceptions import RequestException
 
 DESCRIPTION = 'Page Loader'
 HELP_MESSAGE = 'set output folder'
+SUCCESS_MESSAGE = "Page was successfully download into '{0}'"
 
 
 def main():
@@ -26,9 +27,11 @@ def main():
     args = parser.parse_args()
 
     try:
-        download(args.source, args.output)
+        page_path = download(args.source, args.output)
     except (Exception, RequestException) as exc:
         sys.exit(exc)
+
+    print(SUCCESS_MESSAGE.format(page_path))
 
 
 if __name__ == '__main__':
