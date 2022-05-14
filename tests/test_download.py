@@ -1,94 +1,81 @@
 import os
-import tempfile
 import pytest
-import requests_mock as req_mock
 
 from page_loader import download
 from requests.exceptions import RequestException
 
 DIR_PATH = os.path.dirname(__file__)
-SOURCE_PATH = 'https://ru.hexlet.io/courses'
+ASSETS_FOLDER = 'ru-hexlet-io-courses_files'
 
-fixture_names = {
-    'html_after': 'ru-hexlet-io-courses.html',
-    'html_before': 'courses.html',
-    'image': 'ru-hexlet-io-assets-professions-python.png',
-    'css': 'ru-hexlet-io-assets-application.css',
-    'js': 'ru-hexlet-io-packs-js-runtime.js',
-    'folder': 'ru-hexlet-io-courses_files',
+urls = {
+    'html': 'https://ru.hexlet.io/courses',
+    'image': 'https://ru.hexlet.io/assets/professions/python.png',
+    'js': 'https://ru.hexlet.io/packs/js/runtime.js',
+    'css': 'https://ru.hexlet.io/assets/application.css',
 }
+
+names = {
+    'html': 'ru-hexlet-io-courses.html',
+    'image': 'ru-hexlet-io-assets-professions-python.png',
+    'js': 'ru-hexlet-io-packs-js-runtime.js',
+    'css': 'ru-hexlet-io-assets-application.css',
+}
+
+status_codes = [404, 500]
 
 
 def get_fixture_path(filename):
     return os.path.join(DIR_PATH, 'fixtures', filename)
 
 
-def read_file(filename):
-    return open(get_fixture_path(filename)).read()
+def read_file(filename, mode='r'):
+    return open(get_fixture_path(filename), mode).read()
 
 
-before = read_file('before.html')
-
-expected_html = read_file('after.html')
-expected_structure = [
-    fixture_names['folder'],
-    fixture_names['image'],
-    fixture_names['js'],
-    fixture_names['css'],
-    fixture_names['html_after'],
-    fixture_names['html_after'],
-]
+contents = {
+    'html': read_file('before.html', 'rb'),
+    'image': read_file('python.png', 'rb'),
+    'js': read_file('runtime.js', 'rb'),
+    'css': read_file('application.css', 'rb'),
+}
 
 
-def build_dir_tree(dir_path):
-    tree = []
+def test_download(requests_mock, tmp_path):
+    requests_mock.get(urls['html'], text='data')
 
-    for _, dirs, files in os.walk(dir_path):
-        tree.extend(dirs + files)
+    expected = os.path.join(tmp_path, names['html'])
+    actual = download(urls['html'], tmp_path)
 
-    return tree
-
-
-def test_download(requests_mock):
-    requests_mock.get(req_mock.ANY, text=before)
-
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        expected = os.path.join(tmpdirname, fixture_names['html_after'])
-        actual = download(SOURCE_PATH, tmpdirname)
-
-        assert expected == actual
+    assert expected == actual
 
 
-def test_html_data(requests_mock):
-    requests_mock.get(req_mock.ANY, text=before)
+def test_content(requests_mock, tmp_path):
+    requests_mock.get(urls['html'], content=contents['html'])
+    requests_mock.get(urls['image'], content=contents['image'])
+    requests_mock.get(urls['js'], content=contents['js'])
+    requests_mock.get(urls['css'], content=contents['css'])
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        actual_html = download(SOURCE_PATH, tmpdirname)
+    html = download(urls['html'], tmp_path)
+    image = os.path.join(tmp_path, ASSETS_FOLDER, names['image'])
+    js = os.path.join(tmp_path, ASSETS_FOLDER, names['js'])
+    css = os.path.join(tmp_path, ASSETS_FOLDER, names['css'])
 
-        assert expected_html == read_file(actual_html)
-
-
-def test_dst_structire(requests_mock):
-    requests_mock.get(req_mock.ANY, text=before)
-
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        download(SOURCE_PATH, tmpdirname)
-
-        actual_structure = build_dir_tree(tmpdirname)
-
-        assert sorted(expected_structure) == sorted(actual_structure)
+    assert read_file('after.html') == read_file(html)
+    assert contents['image'] == read_file(image, 'rb')
+    assert contents['js'] == read_file(js, 'rb')
+    assert contents['css'] == read_file(css, 'rb')
 
 
 def test_os_error(requests_mock):
     with pytest.raises(OSError):
-        requests_mock.get(req_mock.ANY, text=before)
+        requests_mock.get(urls['html'], text='data')
 
-        download(SOURCE_PATH, 'some_dir')
+        download(urls['html'], 'tmp_path')
 
 
-def test_request_error(requests_mock):
+@pytest.mark.parametrize('code', status_codes)
+def test_request_error(requests_mock, tmp_path, code):
     with pytest.raises(RequestException):
-        requests_mock.get(req_mock.ANY, text=before, status_code=404)
+        requests_mock.get(urls['html'], status_code=code)
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            download(SOURCE_PATH, tmpdirname)
+        download(urls['html'], tmp_path)

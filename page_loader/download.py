@@ -1,78 +1,86 @@
 """Page Loader Download Module."""
 
-import logging
 import os
-import sys
+from typing import Union
 
 import requests
-from page_loader.common import make_filename, make_foldername
+from page_loader.logger import get_logger, write_traceback
 from page_loader.parser import parse_page
-from page_loader.progress import ProgressSpinner
+from page_loader.url import make_filename
+from progress.bar import IncrementalBar
 from requests.exceptions import RequestException
 
 DEFAULT_DST_FOLDER = os.getcwd()
 
-logging.basicConfig(stream=sys.stderr)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-def save_data(content_data: str, dst: str, url: str) -> str:
-    """Save downloaded data to dst folder."""
-    file_name = make_filename(url)
-    file_path = os.path.join(dst, file_name)
-
-    mode = 'wt' if isinstance(content_data, str) else 'wb'
-
-    try:
-        with open(file_path, mode) as filename:
-            filename.write(content_data)
-    except OSError as exc:
-        logger.error(exc)
-        raise OSError
-
-    return file_path
-
-
-def download_data(url: str) -> str:
+def get_resource(url: str) -> bytes:
     """Download file to dst folder."""
-    req = requests.get(url)
-
     try:
+        req = requests.get(url)
         req.raise_for_status()
     except RequestException as exc:
-        logger.error(exc)
-        raise RequestException
+        logger.warning('Resource "{0}" wasn\'t downloaded.'.format(url))
+        logger.debug(exc, exc_info=True)
+        raise
 
     return req.content
 
 
-def download_assets(assets_urls: str, dst: str, url: str) -> None:
-    """Download page asset."""
-    assets_folder = make_foldername(url)
-    assets_path = os.path.join(dst, assets_folder)
+def save(file_content: Union[str, bytes], dst: str, name: str) -> str:
+    """Save downloaded content to dst folder."""
+    page_path = os.path.join(dst, name)
 
-    if not os.path.exists(assets_path):
+    mode = 'w' if isinstance(file_content, str) else 'wb'
+
+    try:
+        with open(page_path, mode) as filename:
+            filename.write(file_content)
+    except OSError as exc:
+        logger.error(exc)
+        write_traceback()
+        raise
+
+    return page_path
+
+
+def download_assets(assets: list, dst: str) -> None:
+    """Download page asset."""
+    if not os.path.exists(dst):
+        logger.info('Create "{0}" folder for assets.'.format(dst))
+
         try:
-            os.mkdir(assets_path)
+            os.mkdir(dst)
         except OSError as exc:
             logger.error(exc)
-            raise OSError
+            write_traceback()
+            raise
 
-    for asset_url in assets_urls:
-        with ProgressSpinner('{0}'.format(asset_url)) as progress_bar:
-            asset_data = download_data(asset_url)
-            save_data(asset_data, assets_path, asset_url)
-            progress_bar.next()
+        with IncrementalBar(
+            'Downloading:',
+            max=len(assets),
+            suffix='%(percent)d%%',
+        ) as progress:
+            for asset_url, asset_name in assets:
+                asset_content = get_resource(asset_url)
+                save(asset_content, dst, asset_name)
+                progress.next()
 
 
 def download(url: str, dst: str = DEFAULT_DST_FOLDER) -> str:
     """Download html page to dst folder."""
-    page_data = download_data(url)
-    html, assets_urls = parse_page(page_data, url)
+    logger.info('Start download "{0}" to "{1}".'.format(url, dst))
 
-    page_path = save_data(html, dst, url)
+    page_content = get_resource(url)
+    html, assets_path, assets = parse_page(page_content, url)
+    page_path = save(html, dst, make_filename(url))
 
-    if assets_urls:
-        download_assets(assets_urls, dst, url)
+    if assets:
+        logger.info('Start download assets.')
+
+        download_assets(assets, os.path.join(dst, assets_path))
+
+    logger.info('Finish download "{0}".'.format(url))
 
     return page_path
