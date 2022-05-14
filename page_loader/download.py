@@ -50,22 +50,17 @@ def download_assets(assets: list, dst: str) -> None:
     if not os.path.exists(dst):
         logger.info('Create "{0}" folder for assets.'.format(dst))
 
-        try:
-            os.mkdir(dst)
-        except OSError as exc:
-            logger.error(exc)
-            write_traceback()
-            raise
+        os.mkdir(dst)
 
-        with IncrementalBar(
-            'Downloading:',
-            max=len(assets),
-            suffix='%(percent)d%%',
-        ) as progress:
-            for asset_url, asset_name in assets:
-                asset_content = get_resource(asset_url)
-                save(asset_content, dst, asset_name)
-                progress.next()
+    with IncrementalBar(
+        'Downloading:',
+        max=len(assets),
+        suffix='%(percent)d%%',
+    ) as progress:
+        for asset_url, asset_name in assets:
+            asset_content = get_resource(asset_url)
+            save(asset_content, dst, asset_name)
+            progress.next()
 
 
 def download(url: str, dst: str = DEFAULT_DST_FOLDER) -> str:
