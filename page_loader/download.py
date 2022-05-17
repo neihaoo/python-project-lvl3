@@ -1,22 +1,23 @@
 """Page Loader Download Module."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union
 
 import requests
 from page_loader.logger import get_logger, write_traceback
 from page_loader.parser import parse_page
-from page_loader.url import make_filename
+from page_loader.url import make_filename, make_foldername
 from progress.bar import IncrementalBar
 from requests.exceptions import RequestException
 
-DEFAULT_DST_FOLDER = os.getcwd()
+DEFAULT_DESTINATION_FOLDER = os.getcwd()
 
 logger = get_logger(__name__)
 
 
 def get_resource(url: str) -> bytes:
-    """Download file to dst folder."""
+    """Download file to destination folder."""
     try:
         req = requests.get(url)
         req.raise_for_status()
@@ -28,9 +29,9 @@ def get_resource(url: str) -> bytes:
     return req.content
 
 
-def save(file_content: Union[str, bytes], dst: str, name: str) -> str:
-    """Save downloaded content to dst folder."""
-    page_path = os.path.join(dst, name)
+def save(file_content: Union[str, bytes], destination: str, name: str) -> str:
+    """Save downloaded content to destination folder."""
+    page_path = os.path.join(destination, name)
 
     mode = 'w' if isinstance(file_content, str) else 'wb'
 
@@ -45,36 +46,70 @@ def save(file_content: Union[str, bytes], dst: str, name: str) -> str:
     return page_path
 
 
-def download_assets(assets: list, dst: str) -> None:
-    """Download page asset."""
-    if not os.path.exists(dst):
-        logger.info('Create "{0}" folder for assets.'.format(dst))
+def download_asset(
+    asset_url: str,
+    destination: str,
+    asset_name: str,
+    progress: IncrementalBar,
+) -> str:
+    """Download and save page asset."""
+    asset_content = get_resource(asset_url)
+    save(asset_content, destination, asset_name)
+    progress.next()
 
-        os.mkdir(dst)
+    return asset_url
+
+
+def download_assets(assets: list, destination: str) -> None:
+    """Download page asset."""
+    if not assets:
+        return
+
+    logger.info('Start download assets.')
+
+    if not os.path.exists(destination):
+        logger.info('Create "{0}" folder for assets.'.format(destination))
+
+        os.mkdir(destination)
 
     with IncrementalBar(
-        'Downloading:',
+        'Downloading',
         max=len(assets),
         suffix='%(percent)d%%',
     ) as progress:
-        for asset_url, asset_name in assets:
-            asset_content = get_resource(asset_url)
-            save(asset_content, dst, asset_name)
-            progress.next()
+        with ThreadPoolExecutor(max_workers=len(assets)) as executor:
+            futures = [
+                executor.submit(
+                    download_asset,
+                    asset_url,
+                    destination,
+                    asset_name,
+                    progress,
+                )
+                for asset_url, asset_name in assets
+            ]
+
+            futures_result = [
+                future.result() for future in as_completed(futures)
+            ]
+
+            logger.info(
+                'List assets that was downloaded: {0}.'.format(
+                    ', '.join(', '.join(futures_result)),
+                ),
+            )
 
 
-def download(url: str, dst: str = DEFAULT_DST_FOLDER) -> str:
-    """Download html page to dst folder."""
-    logger.info('Start download "{0}" to "{1}".'.format(url, dst))
+def download(url: str, destination: str = DEFAULT_DESTINATION_FOLDER) -> str:
+    """Download html page to destination folder."""
+    logger.info('Start download "{0}" to "{1}".'.format(url, destination))
 
     page_content = get_resource(url)
-    html, assets_path, assets = parse_page(page_content, url)
-    page_path = save(html, dst, make_filename(url))
+    assets_path = make_foldername(url)
+    html, assets = parse_page(page_content, assets_path, url)
+    page_path = save(html, destination, make_filename(url))
 
-    if assets:
-        logger.info('Start download assets.')
-
-        download_assets(assets, os.path.join(dst, assets_path))
+    download_assets(assets, os.path.join(destination, assets_path))
 
     logger.info('Finish download "{0}".'.format(url))
 

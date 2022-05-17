@@ -1,14 +1,12 @@
-"""Common Utils Module."""
+"""Page Loader URLs Module."""
 
 import os
 import re
 from typing import Tuple
 from urllib.parse import urlparse
 
-extensions = {
-    'page': '.html',
-    'folder': '_files',
-}
+PAGE_EXTENSION = '.html'
+FOLDER_EXTENSION = '_files'
 
 
 def parse_url(url: str) -> Tuple[str, str]:
@@ -32,7 +30,7 @@ def make_filename(url: str) -> str:
     filename, extension = os.path.splitext(path)
 
     filename = prepare_name(hostname, filename)
-    extension = extension if extension else extensions['page']
+    extension = extension if extension else PAGE_EXTENSION
 
     return '{0}{1}'.format(filename, extension)
 
@@ -44,4 +42,4 @@ def make_foldername(url: str) -> str:
 
     filename = prepare_name(hostname, filename)
 
-    return '{0}{1}'.format(filename, extensions['folder'])
+    return '{0}{1}'.format(filename, FOLDER_EXTENSION)

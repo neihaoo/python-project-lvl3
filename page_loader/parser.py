@@ -1,13 +1,12 @@
-"""Page-loader Parser Module."""
+"""Page Loader Parser Module."""
 
 import os
-from typing import Tuple
+from typing import Tuple, Union
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
-from page_loader.url import make_filename, make_foldername
+from page_loader.url import make_filename
 
-links = ['img', 'link', 'script']
 links_attrs = {
     'img': 'src',
     'link': 'href',
@@ -20,15 +19,17 @@ def is_hosts_equal(page_host: str, asset_host: str) -> bool:
     return asset_host is None or page_host == asset_host
 
 
-def parse_page(page_data: str, url: str) -> Tuple[str, str, list]:
+def parse_page(
+    page_data: Union[str, bytes],
+    assets_path: str,
+    url: str,
+) -> Tuple[str, str, list]:
     """Parse html page."""
     html = BeautifulSoup(page_data, 'html.parser')
 
     assets = []
 
-    assets_path = make_foldername(url)
-
-    for asset in html.find_all(links):
+    for asset in html.find_all(links_attrs.keys()):
         asset_attr = links_attrs[asset.name]
         asset_src = asset.get(asset_attr)
 
@@ -40,4 +41,4 @@ def parse_page(page_data: str, url: str) -> Tuple[str, str, list]:
 
             assets.append((asset_url, asset_name))
 
-    return html.prettify(), assets_path, assets
+    return html.prettify(), assets

@@ -5,11 +5,11 @@
 import argparse
 import sys
 
-from page_loader.download import DEFAULT_DST_FOLDER, download
+from page_loader.download import DEFAULT_DESTINATION_FOLDER, download
 from requests.exceptions import RequestException
 
 DESCRIPTION = 'Page Loader'
-HELP_MESSAGE = 'output dir (default: "{0}")'.format(DEFAULT_DST_FOLDER)
+HELP_MESSAGE = 'output dir (default: "{0}")'.format(DEFAULT_DESTINATION_FOLDER)
 SUCCESS_MESSAGE = "Page was successfully download into '{0}'"
 
 
@@ -21,7 +21,7 @@ def main():
         '-o',
         '--output',
         help=HELP_MESSAGE,
-        default=DEFAULT_DST_FOLDER,
+        default=DEFAULT_DESTINATION_FOLDER,
     )
 
     args = parser.parse_args()
