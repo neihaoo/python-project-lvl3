@@ -54,6 +54,7 @@ def download_asset(
 ) -> str:
     """Download and save page asset."""
     asset_content = get_resource(asset_url)
+
     save(asset_content, destination, asset_name)
     progress.next()
 
@@ -94,8 +95,8 @@ def download_assets(assets: list, destination: str) -> None:
             ]
 
             logger.info(
-                'List assets that was downloaded: {0}.'.format(
-                    ', '.join(', '.join(futures_result)),
+                'List downloaded assets: {0}.'.format(
+                    ', '.join(futures_result),
                 ),
             )
 
